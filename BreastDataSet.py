@@ -1,9 +1,4 @@
-from PIL import Image
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-import torch
-from torchvision.transforms import v2
-import cv2 as cv
 
 from MyResnet import preprocess
 
@@ -27,7 +22,7 @@ class BreastDataSet(Dataset):
         #transform images
         if self.transform != None:
             transformed_img = self.transform(img)
-            transformed_img = preprocess(img)
+            #transformed_img = preprocess(img)
 
         #Get label of img
         label = self.labels[idx]

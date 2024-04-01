@@ -4,9 +4,16 @@ from PIL import Image
 import cv2 as cv
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 import numpy as np
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import torch.optim as optim
+import optuna
+
+BATCHSIZE = 16
+CLASSES = 3
+N_TRAIN_EXAMPLES = BATCHSIZE * 50
+N_VALID_EXAMPLES = BATCHSIZE * 20
+
 
 #function to order datasets
 def myOrder(file):
@@ -78,11 +85,11 @@ def contrastEnhancement(img):
 
 #read files to image
 def readFiles(files):
-    return [Image.open(fname[0]).convert("L") for fname in files]
+    return [Image.open(fname).convert("L") for fname in files]
 
 #read files to image
 def readFilesRGB(files):
-    return [Image.open(fname[0]).convert("RGB") for fname in files]
+    return [Image.open(fname).convert("RGB") for fname in files]
 
 #Alternative mean and std
 def mean_std(imgs):
@@ -124,15 +131,16 @@ def get_mean_std(loader):
 
     return mean, std
 
-def train(model, num_epochs, train_dl, valid_dl, learning_rate):
+def train(model, num_epochs, train_dl, valid_dl, trial):
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
-    #scheduler = ReduceLROnPlateau(optimizer, 'min')
+    optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "AdamW", "SGD"])
+    lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+    optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
+
     loss_hist_train = [0] * num_epochs
     accuracy_hist_train = [0] * num_epochs
     loss_hist_valid = [0] * num_epochs
     accuracy_hist_valid = [0] * num_epochs
-
     for epoch in range(num_epochs):
         model.train()
         for imgs_batch, labels_batch in train_dl:
@@ -167,3 +175,54 @@ def train(model, num_epochs, train_dl, valid_dl, learning_rate):
               f'{accuracy_hist_valid[epoch]:4f}')
         
     return loss_hist_train, loss_hist_valid, accuracy_hist_train, accuracy_hist_valid
+
+def objective(model, num_epochs, train_dl, valid_dl, trial):
+    loss_fn = nn.CrossEntropyLoss()
+
+    optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "AdamW", "SGD"])
+    lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+    optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
+    accuracy_hist_train = [0] * num_epochs
+    loss_hist_valid = [0] * num_epochs
+    accuracy_hist_valid = [0] * num_epochs
+    accuracy = 0.
+    for epoch in range(num_epochs):
+        model.train()
+        for batch_idx, (imgs_batch, labels_batch) in enumerate(train_dl):
+            if batch_idx * BATCHSIZE >= N_VALID_EXAMPLES:
+                break
+            pred = model(imgs_batch)
+            loss = loss_fn(pred, labels_batch)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            is_correct = (torch.argmax(pred, dim=1) == labels_batch).float() 
+            accuracy_hist_train[epoch] += is_correct.sum()
+
+        accuracy_hist_train[epoch] /= min(len(train_dl.dataset), N_TRAIN_EXAMPLES)
+
+        model.eval()
+
+        with torch.no_grad():
+            for batch_idx, (imgs_batch, labels_batch) in enumerate(valid_dl):
+                pred = model(imgs_batch)
+                loss = loss_fn(pred, labels_batch)
+                loss_hist_valid[epoch] += loss.item()*labels_batch.size(0)
+                is_correct = (torch.argmax(pred, dim=1) == labels_batch).float() 
+                accuracy_hist_valid[epoch] += is_correct.sum()
+        
+        loss_hist_valid[epoch] /= min(len(valid_dl.dataset), N_VALID_EXAMPLES)
+        accuracy_hist_valid[epoch] /= min(len(valid_dl.dataset), N_VALID_EXAMPLES)
+
+        accuracy = accuracy_hist_valid[epoch]
+        trial.report(accuracy, epoch)
+
+        # Handle pruning based on the intermediate value.
+        if trial.should_prune():
+            raise optuna.exceptions.TrialPruned()
+
+        print(f'Epoch {epoch + 1} accuracy: '
+              f'{accuracy_hist_train[epoch]:.4f} val_accuracy: '
+              f'{accuracy_hist_valid[epoch]:4f}')
+        
+    return accuracy
