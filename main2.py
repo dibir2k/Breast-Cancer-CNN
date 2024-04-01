@@ -8,6 +8,7 @@ import optuna
 from optuna.trial import TrialState
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 
 #import helpfunctions
 from helpFunctions import myOrder, groupFiles, readFilesRGB, get_mean_std, train, objective
