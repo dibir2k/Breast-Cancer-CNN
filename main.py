@@ -16,14 +16,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 #import helpfunctions
-from helpFunctions import myOrder, groupFiles, readFiles, train, mean_std, objective
+from utils import myOrder, readFiles, train, mean_std, objective
 
 #import Breast Data Set class BreastCNN and TRAIN
 from BreastDataSet import BreastDataSet
 from BreastCNN import BreastCNN
 
 DEVICE = torch.device("cpu")
-BATCHSIZE = 32
+BATCHSIZE = 16
 CLASSES = 3
 DIR = os.getcwd()
 EPOCHS = 100
@@ -174,4 +174,4 @@ if __name__ == "__main__":
     ax.legend(fontsize=15)
     ax.set_xlabel("Epoch", size=15)
     ax.set_ylabel("Accuracy", size=15)
-    fig.savefig("/Figures/Loss-Accuracy.png")
+    fig.savefig("./Figures/Loss-Accuracy.png")

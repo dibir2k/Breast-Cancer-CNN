@@ -12,7 +12,7 @@ import optuna
 BATCHSIZE = 16
 CLASSES = 3
 N_TRAIN_EXAMPLES = BATCHSIZE * 50
-N_VALID_EXAMPLES = BATCHSIZE * 20
+N_VALID_EXAMPLES = BATCHSIZE * 30
 
 
 #function to order datasets
@@ -205,6 +205,8 @@ def objective(model, num_epochs, train_dl, valid_dl, trial):
 
         with torch.no_grad():
             for batch_idx, (imgs_batch, labels_batch) in enumerate(valid_dl):
+                if batch_idx * BATCHSIZE >= N_VALID_EXAMPLES:
+                    break
                 pred = model(imgs_batch)
                 loss = loss_fn(pred, labels_batch)
                 loss_hist_valid[epoch] += loss.item()*labels_batch.size(0)

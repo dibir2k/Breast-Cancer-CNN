@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #import helpfunctions
-from helpFunctions import myOrder, groupFiles, readFilesRGB, get_mean_std, train, objective
+from utils import myOrder, readFilesRGB, get_mean_std, train, objective
 
 #import Breast Data Set class BreastCNN and TRAIN
 from BreastDataSet import BreastDataSet
@@ -93,7 +93,7 @@ train_transform = v2.Compose([
 ])
 
 
-train_dataset = BreastDataSet(breast_images_train, labels_train, transform=preprocess)
+train_dataset = BreastDataSet(breast_images_train, labels_train, transform=train_transform)
 valid_dataset = BreastDataSet(breast_images_valid, labels_valid, transform=preprocess)
 test_dataset = BreastDataSet(breast_images_test, labels_test, transform=preprocess)
 
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     test_dl = DataLoader(test_dataset, batch_size, shuffle=True)
 
     study = optuna.create_study(direction="maximize")
-    study.optimize(lambda trial: objective(MyResnet(trial), num_epochs, train_dl, valid_dl, trial), n_trials=200, timeout=600)
+    study.optimize(lambda trial: objective(MyResnet(trial), 100, train_dl, valid_dl, trial), n_trials=200, timeout=14400)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -159,4 +159,4 @@ if __name__ == "__main__":
     ax.legend(fontsize=15)
     ax.set_xlabel("Epoch", size=15)
     ax.set_ylabel("Accuracy", size=15)
-    fig.savefig("/Figures/Loss-Accuracy.png")
+    fig.savefig("./Figures/Loss-Accuracy.png")
